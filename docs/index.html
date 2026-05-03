@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Injectify – Open-source Chrome Extension to inject custom JavaScript, CSS, and CDN resources into any website with rule-based control." />
+  <title>Injectify – Rule-Based JS & CSS Injector for Chrome</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #818cf8;
+      --primary-dark: #3730a3;
+      --accent: #06b6d4;
+      --surface: #ffffff;
+      --surface-2: #f8f8fb;
+      --border: #e4e4f0;
+      --text: #1e1b4b;
+      --text-muted: #6b7280;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(79,70,229,0.10);
+      --max-w: 1100px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--surface);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre {
+      font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+    }
+
+    img { max-width: 100%; }
+
+    /* ── Layout helpers ─────────────────────────────────────────── */
+
+    .container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 80px 0; }
+    section:nth-child(even) { background: var(--surface-2); }
+
+    .section-tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: #ede9fe;
+      padding: 4px 12px;
+      border-radius: 99px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 560px;
+    }
+
+    /* ── Buttons ────────────────────────────────────────────────── */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      text-decoration: none;
+      border: none;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(79,70,229,0.35);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(79,70,229,0.45);
+    }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.4);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.25);
+      text-decoration: none;
+    }
+
+    /* ── Navbar ─────────────────────────────────────────────────── */
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .navbar .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .nav-brand svg { flex-shrink: 0; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      background: var(--primary);
+      color: #fff !important;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-weight: 700 !important;
+    }
+
+    .nav-cta:hover { background: var(--primary-dark); }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4f46e5 100%);
+      color: #fff;
+      padding: 100px 0 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 50%, rgba(99,102,241,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(6,182,212,0.2) 0%, transparent 40%);
+    }
+
+    .hero .container { position: relative; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 99px;
+      padding: 4px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #c7d2fe;
+      margin-bottom: 20px;
+    }
+
+    .hero-badge span { color: #a5f3fc; }
+
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, #a5b4fc, #67e8f9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: rgba(255,255,255,0.75);
+      max-width: 560px;
+      margin-bottom: 36px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      margin-top: 56px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* ── Features ───────────────────────────────────────────────── */
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+      margin-top: 48px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(79,70,229,0.15);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 22px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── How it works ───────────────────────────────────────────── */
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      margin-top: 48px;
+    }
+
+    .step {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-content h3 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .step-content p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .step-content code {
+      background: #ede9fe;
+      color: var(--primary-dark);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    /* ── Screenshots ────────────────────────────────────────────── */
+
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 48px;
+    }
+
+    .screenshot-placeholder {
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      border: 2px dashed #a78bfa;
+      border-radius: var(--radius);
+      aspect-ratio: 16/10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--primary);
+    }
+
+    .screenshot-placeholder span {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ── Code block ─────────────────────────────────────────────── */
+
+    .code-block {
+      background: #1e1b4b;
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 32px;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .code-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .code-dots { display: flex; gap: 6px; }
+    .code-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .code-dot:nth-child(1) { background: #ef4444; }
+    .code-dot:nth-child(2) { background: #f59e0b; }
+    .code-dot:nth-child(3) { background: #22c55e; }
+
+    pre.code-body {
+      padding: 20px 22px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #c7d2fe;
+      overflow-x: auto;
+    }
+
+    .kw  { color: #a5b4fc; }
+    .str { color: #6ee7b7; }
+    .cmt { color: #6b7280; font-style: italic; }
+    .fn  { color: #fde68a; }
+    .num { color: #f9a8d4; }
+
+    /* ── Installation ───────────────────────────────────────────── */
+
+    .install-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 48px;
+    }
+
+    .install-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      position: relative;
+    }
+
+    .install-num {
+      position: absolute;
+      top: -14px;
+      left: 20px;
+      background: var(--primary);
+      color: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .install-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      margin-top: 6px;
+    }
+
+    .install-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .install-card code {
+      display: block;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--primary-dark);
+      margin-top: 10px;
+    }
+
+    /* ── CTA ────────────────────────────────────────────────────── */
+
+    .cta-section {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 100%);
+      color: #fff;
+      text-align: center;
+    }
+
+    .cta-section .section-title { color: #fff; }
+    .cta-section .section-sub   { color: rgba(255,255,255,0.7); margin: 0 auto 36px; }
+
+    .cta-actions {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-white {
+      background: #fff;
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+
+    .btn-white:hover {
+      background: #f5f3ff;
+      text-decoration: none;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+
+    footer {
+      background: #0f0e2a;
+      color: rgba(255,255,255,0.5);
+      padding: 40px 0;
+    }
+
+    footer .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: #fff; text-decoration: none; }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+
+    @media (max-width: 640px) {
+      section { padding: 56px 0; }
+      .nav-links { display: none; }
+      .hero { padding: 64px 0 56px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navbar ─────────────────────────────────────────────────── -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="#" class="nav-brand">
+        <svg width="28" height="28" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="22" fill="#4F46E5"/>
+          <rect x="38" y="26" width="52" height="16" fill="white"/>
+          <rect x="58" y="42" width="12" height="44" fill="white"/>
+          <rect x="38" y="86" width="52" height="16" fill="white"/>
+        </svg>
+        Injectify
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#installation">Install</a></li>
+        <li><a href="#usage">Usage</a></li>
+        <li><a href="https://github.com/shade-solutions/Injectify" target="_blank" rel="noopener" class="nav-cta">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ── Hero ───────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span>✨ Open Source</span> &mdash; MIT Licensed
+      </div>
+      <h1>
+        Inject JS &amp; CSS into<br />
+        <em>any website</em> you visit
+      </h1>
+      <p>
+        Injectify is a lightweight Chrome Extension that lets you run custom
+        JavaScript, apply CSS tweaks, and load CDN libraries on any site —
+        controlled by flexible, per-domain rules.
+      </p>
+      <div class="hero-actions">
+        <a href="#installation" class="btn btn-primary">
+          🚀 Install Extension
+        </a>
+        <a href="https://github.com/shade-solutions/Injectify" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85.004 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48C19.14 20.16 22 16.42 22 12c0-5.52-4.48-10-10-10z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">MV3</span>
+          <span class="stat-label">Manifest Version 3</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">JS+CSS</span>
+          <span class="stat-label">+ CDN Support</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">∞</span>
+          <span class="stat-label">Rules per domain</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">MIT</span>
+          <span class="stat-label">Open Source</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ───────────────────────────────────────────────── -->
+  <section id="features">
+    <div class="container">
+      <span class="section-tag">Features</span>
+      <h2 class="section-title">Everything you need to customise the web</h2>
+      <p class="section-sub">
+        Injectify gives you fine-grained control over every page you visit —
+        with zero configuration headaches.
+      </p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>JavaScript Injection</h3>
+          <p>Run custom scripts on any page. Automate tasks, modify DOM, interact with page APIs.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3>CSS Injection</h3>
+          <p>Apply custom stylesheets instantly. Dark mode, layout tweaks, branding overrides — anything.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>CDN Script Loading</h3>
+          <p>Load jQuery, lodash, Vue, or any CDN library before your custom JS runs.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Flexible URL Patterns</h3>
+          <p>Match by exact domain, wildcard subdomain (<code>*.example.com</code>), glob, or full RegExp.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔀</div>
+          <h3>Multiple Rules</h3>
+          <p>Create unlimited rules per site. Toggle each on/off independently without deleting them.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h3>Import &amp; Export</h3>
+          <p>Backup your rules as JSON, share them with teammates, or restore them after reinstalling.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Secure by Design</h3>
+          <p>No remote code execution. No eval(). Your scripts run only when you authorise them.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Works Everywhere</h3>
+          <p>Any URL — HTTP, HTTPS, or local servers. Pin to specific domains or go truly global.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛠️</div>
+          <h3>Manifest V3 Ready</h3>
+          <p>Built on Chrome's latest extension platform. Faster, more secure, future-proof.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ───────────────────────────────────────────── -->
+  <section id="how-it-works">
+    <div class="container">
+      <span class="section-tag">How it works</span>
+      <h2 class="section-title">Simple, rule-driven injection</h2>
+      <p class="section-sub">
+        Injectify matches the current page URL against your saved rules and
+        applies matching ones automatically.
+      </p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;margin-top:48px;">
+        <div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <h3>Open Options</h3>
+                <p>Click the Injectify icon and go to <strong>Manage all rules</strong> to open the full dashboard.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <h3>Create a rule</h3>
+                <p>Give it a name, set a URL pattern like <code>github.com</code> or <code>*</code> for all pages, then paste your JS and/or CSS.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <h3>Enable &amp; reload</h3>
+                <p>Toggle the rule on and reload the target page. Injectify injects your code automatically.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                <h3>See results instantly</h3>
+                <p>The popup shows which rules are active on the current page. Disable or edit at any time.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-dots">
+                <div class="code-dot"></div>
+                <div class="code-dot"></div>
+                <div class="code-dot"></div>
+              </div>
+              <span class="code-title">Example rule — GitHub dark header</span>
+            </div>
+            <pre class="code-body"><span class="cmt">// URL pattern: github.com</span>
+
+<span class="cmt">// CSS field:</span>
+<span class="str">.AppHeader { background: #0d1117 !important; }</span>
+
+<span class="cmt">// JavaScript field:</span>
+<span class="kw">console</span>.<span class="fn">log</span>(
+  <span class="str">'[Injectify] Active on'</span>,
+  <span class="kw">document</span>.title
+);
+
+<span class="cmt">// CDN field:</span>
+<span class="str">https://cdn.jsdelivr.net/npm/lodash@4/lodash.min.js</span></pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Screenshots ────────────────────────────────────────────── -->
+  <section id="screenshots">
+    <div class="container">
+      <span class="section-tag">Screenshots</span>
+      <h2 class="section-title">Clean, minimal UI</h2>
+      <p class="section-sub">The popup and options dashboard are designed to stay out of your way.</p>
+      <div class="screenshots-grid">
+        <div class="screenshot-placeholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+               stroke="#7c3aed" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Popup (active rules)</span>
+        </div>
+        <div class="screenshot-placeholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+               stroke="#7c3aed" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Options — Rules dashboard</span>
+        </div>
+        <div class="screenshot-placeholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+               stroke="#7c3aed" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Options — Edit rule form</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Installation ───────────────────────────────────────────── -->
+  <section id="installation">
+    <div class="container">
+      <span class="section-tag">Installation</span>
+      <h2 class="section-title">Load unpacked in under a minute</h2>
+      <p class="section-sub">
+        Injectify is not (yet) on the Chrome Web Store, so you load it directly
+        from the source — it takes less than 60 seconds.
+      </p>
+      <div class="install-steps">
+        <div class="install-card">
+          <div class="install-num">1</div>
+          <h3>Download the source</h3>
+          <p>Clone the repo or download the ZIP from GitHub.</p>
+          <code>git clone https://github.com/<br/>shade-solutions/Injectify.git</code>
+        </div>
+        <div class="install-card">
+          <div class="install-num">2</div>
+          <h3>Open Chrome Extensions</h3>
+          <p>Navigate to the extensions management page.</p>
+          <code>chrome://extensions</code>
+        </div>
+        <div class="install-card">
+          <div class="install-num">3</div>
+          <h3>Enable Developer Mode</h3>
+          <p>Toggle the <strong>Developer mode</strong> switch in the top-right corner.</p>
+        </div>
+        <div class="install-card">
+          <div class="install-num">4</div>
+          <h3>Load Unpacked</h3>
+          <p>Click <strong>Load unpacked</strong> and select the <code>/extension</code> folder from the cloned repo.</p>
+        </div>
+        <div class="install-card">
+          <div class="install-num">5</div>
+          <h3>Pin &amp; use</h3>
+          <p>Pin Injectify to your toolbar. Click its icon on any page to see active rules.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Usage ──────────────────────────────────────────────────── -->
+  <section id="usage">
+    <div class="container">
+      <span class="section-tag">Usage guide</span>
+      <h2 class="section-title">URL pattern reference</h2>
+      <p class="section-sub">
+        Injectify supports several pattern syntaxes — pick the one that fits your use case.
+      </p>
+
+      <div style="overflow-x:auto;margin-top:40px;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="background:var(--surface-2);">
+              <th style="text-align:left;padding:12px 16px;border-bottom:2px solid var(--border);font-weight:700;">Pattern</th>
+              <th style="text-align:left;padding:12px 16px;border-bottom:2px solid var(--border);font-weight:700;">Matches</th>
+              <th style="text-align:left;padding:12px 16px;border-bottom:2px solid var(--border);font-weight:700;">Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 16px;"><code style="background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:4px;">*</code></td>
+              <td style="padding:12px 16px;">Every URL</td>
+              <td style="padding:12px 16px;color:var(--text-muted);">Applies to all pages</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 16px;"><code style="background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:4px;">example.com</code></td>
+              <td style="padding:12px 16px;">Exact hostname</td>
+              <td style="padding:12px 16px;color:var(--text-muted);">example.com and any sub-path</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 16px;"><code style="background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:4px;">*.example.com</code></td>
+              <td style="padding:12px 16px;">All subdomains</td>
+              <td style="padding:12px 16px;color:var(--text-muted);">app.example.com, api.example.com…</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 16px;"><code style="background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:4px;">https://example.com/*</code></td>
+              <td style="padding:12px 16px;">Glob / Chrome match pattern</td>
+              <td style="padding:12px 16px;color:var(--text-muted);">Only HTTPS pages under that origin</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;"><code style="background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:4px;">/github\.com\/\w+/i</code></td>
+              <td style="padding:12px 16px;">JavaScript RegExp</td>
+              <td style="padding:12px 16px;color:var(--text-muted);">Full regex with optional flags</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────────────────── -->
+  <section class="cta-section">
+    <div class="container" style="text-align:center;">
+      <span class="section-tag" style="background:rgba(255,255,255,0.15);color:#c7d2fe;">Open Source</span>
+      <h2 class="section-title" style="margin-top:12px;">Help make Injectify better</h2>
+      <p class="section-sub">
+        Injectify is fully open-source. Found a bug? Have a feature idea? PRs and issues are always welcome.
+      </p>
+      <div class="cta-actions">
+        <a href="https://github.com/shade-solutions/Injectify" target="_blank" rel="noopener" class="btn btn-white">
+          ⭐ Star on GitHub
+        </a>
+        <a href="https://github.com/shade-solutions/Injectify/issues/new" target="_blank" rel="noopener" class="btn btn-ghost">
+          🐛 Report an issue
+        </a>
+        <a href="https://github.com/shade-solutions/Injectify/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="btn btn-ghost">
+          🤝 Contributing guide
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────────────────── -->
+  <footer>
+    <div class="container">
+      <div class="footer-brand">
+        <svg width="20" height="20" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="22" fill="#4F46E5"/>
+          <rect x="38" y="26" width="52" height="16" fill="white"/>
+          <rect x="58" y="42" width="12" height="44" fill="white"/>
+          <rect x="38" y="86" width="52" height="16" fill="white"/>
+        </svg>
+        Injectify
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/shade-solutions/Injectify" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/shade-solutions/Injectify/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://github.com/shade-solutions/Injectify/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+        <a href="https://github.com/shade-solutions/Injectify/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+      <p style="font-size:13px;">© 2026 Shade Solutions. Made with ♥ for the open-source community.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

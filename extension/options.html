@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Injectify – Options</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="icons/icon48.png" alt="" width="28" height="28" />
+      <span>Injectify</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#rules" class="nav-link active" data-view="rules">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        Rules
+      </a>
+      <a href="#import-export" class="nav-link" data-view="import-export">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Import / Export
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="https://github.com/shade-solutions/Injectify" target="_blank" rel="noopener" class="sidebar-link">
+        GitHub ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- ── Rules view ───────────────────────────────────────────────────── -->
+    <section id="view-rules" class="view active">
+
+      <header class="view-header">
+        <div>
+          <h1>Rules</h1>
+          <p class="subtitle">Manage injection rules per domain or globally.</p>
+        </div>
+        <button id="add-rule-btn" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add rule
+        </button>
+      </header>
+
+      <div id="rules-container" class="rules-container">
+        <!-- Populated by JS -->
+      </div>
+
+    </section>
+
+    <!-- ── Edit / Add form ──────────────────────────────────────────────── -->
+    <section id="view-edit" class="view">
+
+      <header class="view-header">
+        <div>
+          <h1 id="form-title">Add rule</h1>
+          <p class="subtitle">Configure injection behaviour for a URL pattern.</p>
+        </div>
+        <button id="cancel-btn" class="btn btn-ghost">Cancel</button>
+      </header>
+
+      <form id="rule-form" novalidate>
+        <input type="hidden" id="field-id" />
+
+        <div class="form-grid">
+
+          <!-- Name -->
+          <div class="form-group span-2">
+            <label for="field-name">Name <span class="required">*</span></label>
+            <input id="field-name" type="text" placeholder="e.g. Dark mode for GitHub" required />
+            <p class="field-hint">A human-readable label for this rule.</p>
+          </div>
+
+          <!-- URL Pattern -->
+          <div class="form-group span-2">
+            <label for="field-pattern">URL pattern <span class="required">*</span></label>
+            <input id="field-pattern" type="text" placeholder="e.g. github.com  or  *.example.com  or  *" required />
+            <p class="field-hint">
+              Use <code>*</code> for all pages, <code>example.com</code> for an exact host,
+              <code>*.example.com</code> for all subdomains, or <code>/regex/flags</code> for a regexp.
+            </p>
+          </div>
+
+          <!-- Enabled toggle -->
+          <div class="form-group span-2">
+            <label class="toggle-label">
+              <input id="field-enabled" type="checkbox" class="toggle-input" />
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              Enable this rule
+            </label>
+          </div>
+
+          <!-- JS Code -->
+          <div class="form-group span-2">
+            <label for="field-js">JavaScript</label>
+            <textarea id="field-js" rows="8" spellcheck="false"
+              placeholder="// Your custom JavaScript here&#10;console.log('Hello from Injectify!');"></textarea>
+            <p class="field-hint">Injected as a <code>&lt;script&gt;</code> element after CDN scripts have loaded.</p>
+          </div>
+
+          <!-- CSS Code -->
+          <div class="form-group span-2">
+            <label for="field-css">CSS</label>
+            <textarea id="field-css" rows="6" spellcheck="false"
+              placeholder="/* Your custom CSS here */&#10;body { background: #1a1a2e; color: #eee; }"></textarea>
+            <p class="field-hint">Injected as a <code>&lt;style&gt;</code> element.</p>
+          </div>
+
+          <!-- CDN URLs -->
+          <div class="form-group span-2">
+            <label>CDN URLs</label>
+            <div id="cdn-list" class="cdn-list">
+              <!-- Populated dynamically -->
+            </div>
+            <button type="button" id="add-cdn-btn" class="btn btn-ghost btn-sm">
+              + Add CDN URL
+            </button>
+            <p class="field-hint">External scripts loaded before your JS (e.g. jQuery, lodash).</p>
+          </div>
+
+        </div><!-- /form-grid -->
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save rule</button>
+          <button type="button" id="delete-btn" class="btn btn-danger" hidden>Delete rule</button>
+        </div>
+      </form>
+
+    </section>
+
+    <!-- ── Import / Export view ─────────────────────────────────────────── -->
+    <section id="view-import-export" class="view">
+
+      <header class="view-header">
+        <div>
+          <h1>Import / Export</h1>
+          <p class="subtitle">Backup or restore all your Injectify rules as JSON.</p>
+        </div>
+      </header>
+
+      <div class="ie-cards">
+
+        <div class="ie-card">
+          <h2>Export</h2>
+          <p>Download all rules as a <code>.json</code> file.</p>
+          <button id="export-btn" class="btn btn-primary">Download JSON</button>
+        </div>
+
+        <div class="ie-card">
+          <h2>Import</h2>
+          <p>Load rules from a previously exported <code>.json</code> file.
+             <strong>This replaces all existing rules.</strong></p>
+          <label class="btn btn-ghost" style="cursor:pointer;">
+            Choose file…
+            <input id="import-input" type="file" accept=".json,application/json" hidden />
+          </label>
+          <p id="import-status" class="import-status"></p>
+        </div>
+
+      </div>
+    </section>
+
+  </main><!-- /main -->
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
